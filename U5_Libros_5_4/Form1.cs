@@ -1,0 +1,233 @@
+using System.Data;
+using System.Data.SqlClient;
+
+
+
+
+
+namespace U5_Libros_5_4
+{
+    public partial class Form1 : Form
+    {
+        bool nuevo = false;
+        private Libro[] libros;
+        private int ultimo;
+        private const int tamanio = 50;
+
+        public Form1()
+        {
+            InitializeComponent();
+            libros = new Libro[tamanio];
+            ultimo = 0;
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            Habilitar(false);
+            CargarCombo("Generos", "idGenero", "nombreGenero", cboGenero);
+            CargarLista("Libros");
+            rbtDigital.Checked = true;
+
+
+        }
+
+        public void Habilitar(bool x)
+        {
+            textCodigo.Enabled = x;
+            textTitulo.Enabled = x;
+            txtImporte.Enabled = x;
+            cboGenero.Enabled = x;
+            rbtImpreso.Enabled = x;
+            rbtDigital.Enabled = x;
+            btnGrabar.Enabled = x;
+            btnCancelar.Enabled = x;
+            btnNuevo.Enabled = !x;
+            btnSalir.Enabled = !x;
+            lstLibros.Enabled = !x;
+
+        }
+
+        public void Limpiar()
+        {
+            textCodigo.Text = "";
+            textTitulo.Text = "";
+            txtImporte.Text = "";
+            cboGenero.SelectedIndex = -1;
+            rbtImpreso.Checked = false;
+            rbtDigital.Checked = false;
+
+        }
+
+        public void CargarCombo(string nombretabla, string valuemember, string displaymember, ComboBox cbo)
+        {
+            SqlConnection cnn = new SqlConnection(@"Data Source=.\SQLEXPRESS;Initial Catalog=LIBROS;Integrated Security=True");
+            cnn.Open();
+            SqlCommand cmd = new SqlCommand();
+            cmd.CommandType = CommandType.Text;
+            cmd.CommandText = "select * from " + nombretabla;
+            cmd.Connection = cnn;
+            SqlDataReader reader = cmd.ExecuteReader();
+            DataTable tabla = new DataTable();
+            tabla.Load(reader);
+            cboGenero.DataSource = tabla;
+            cboGenero.DisplayMember = displaymember;
+            cboGenero.ValueMember = valuemember;
+
+            cnn.Close();
+
+            Habilitar(false);
+            Limpiar();
+            CargarLista("Libros");
+
+        }
+
+        public void CargarLista(string nombretablalst)
+        {
+            SqlConnection cnn = new SqlConnection(@"Data Source=.\SQLEXPRESS;Initial Catalog=LIBROS;Integrated Security=True");
+            cnn.Open();
+            SqlCommand cmd = new SqlCommand();
+            cmd.CommandType = CommandType.Text;
+            cmd.CommandText = "select * from " + nombretablalst;
+            cmd.Connection = cnn;
+            SqlDataReader reader = cmd.ExecuteReader();
+            DataTable tablalst = new DataTable();
+            tablalst.Load(reader);
+            lstLibros.Items.Clear();
+            foreach (DataRow row in tablalst.Rows)
+            {
+                Libro oLibro = new Libro();
+                oLibro.pCodigo = int.Parse(row["codigo"].ToString());
+                oLibro.pTitulo = row["titulo"].ToString();
+                oLibro.pGenero = row["idGenero"].ToString();
+                oLibro.pImporte = double.Parse(row["importe"].ToString());
+                oLibro.pFormato = int.Parse(row["idFormato"].ToString());
+                lstLibros.Items.Add(oLibro);
+                libros[ultimo] = oLibro;
+                ultimo++;
+
+            }
+
+            cnn.Close();
+
+
+        }
+
+        private void btnNuevo_Click(object sender, EventArgs e)
+        {
+            nuevo = true;
+            Habilitar(true);
+            Limpiar();
+            textCodigo.Focus();
+
+
+        }
+
+        private void lstLibros_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (lstLibros.SelectedIndex != -1)
+            {
+                Libro oLibro = libros[lstLibros.SelectedIndex];
+
+                textCodigo.Text = oLibro.pCodigo.ToString();
+                textTitulo.Text = oLibro.pTitulo.ToString();
+                cboGenero.SelectedValue = int.Parse(oLibro.pGenero.ToString());
+                txtImporte.Text = oLibro.pImporte.ToString();
+                if (oLibro.pFormato == 1)
+                {
+                    rbtImpreso.Checked = true;
+                }
+                else
+                {
+                    rbtDigital.Checked = true;
+                }
+
+
+            }
+        }
+
+        private void btnGrabar_Click(object sender, EventArgs e)
+        {
+            int ocodigo = int.Parse(textCodigo.Text.ToString());
+            string otitulo = textTitulo.Text.ToString();
+            string ogenero = cboGenero.SelectedValue.ToString();
+            double oimporte = Convert.ToDouble(txtImporte.Text.ToString());
+            int oformato = 1;
+            if (rbtDigital.Checked)
+                oformato = 2;
+
+            Libro oLibro = new Libro(ocodigo, otitulo, ogenero, oimporte, oformato);
+
+            SqlConnection cnn = new SqlConnection(@"Data Source=.\SQLEXPRESS;Initial Catalog=LIBROS;Integrated Security=True");
+            cnn.Open();
+            SqlCommand cmd = new SqlCommand();
+
+            if (nuevo == true)
+            {
+                if (!Hallado(ocodigo))
+                {
+                    cmd.CommandText = "INSERT INTO LIBROS (codigo, titulo, idGenero, importe, idFormato) " +
+                        " VALUES ( @codigo, @titulo, @idGenero, @importe, @idFormato)";
+
+                    cmd.Parameters.AddWithValue("@codigo", oLibro.pCodigo);
+                    cmd.Parameters.AddWithValue("@titulo", oLibro.pTitulo);
+                    cmd.Parameters.AddWithValue("@idGenero", oLibro.pGenero);
+                    cmd.Parameters.AddWithValue("@importe", oLibro.pImporte);
+                    cmd.Parameters.AddWithValue("@idFormato", oLibro.pFormato);
+
+                    MessageBox.Show("El Codigo de libro se guardo correctamente", "Guardado", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+
+                }
+                else
+                {
+                    MessageBox.Show("El Codigo de libro ya existe", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                    cnn.Close();
+
+                }
+
+                
+            }
+
+            cmd.CommandType = CommandType.Text;
+            cmd.Connection = cnn;
+            cmd.ExecuteNonQuery();
+
+            cnn.Close();
+
+            Habilitar(false);
+            Limpiar();
+            CargarLista("Libros");
+
+            
+        }
+
+    
+        public bool Hallado (int nroCodigo)
+        { 
+            bool identificado = false;
+            for (int i = 0; i < ultimo; i++)
+            {
+                if (libros[i]!= null && libros[i].pCodigo == nroCodigo)
+                {
+                    identificado = true;
+                    break;
+                }
+                
+            }
+            return identificado;
+        }
+
+        private void btnCancelar_Click(object sender, EventArgs e)
+        {
+            Limpiar();
+            Habilitar(false);
+            nuevo = false;
+        }
+
+        private void btnSalir_Click(object sender, EventArgs e)
+        {
+            if (MessageBox.Show("Esta seguro que desea salir","Aviso",MessageBoxButtons.YesNo, MessageBoxIcon.Hand,MessageBoxDefaultButton.Button2) == DialogResult.Yes)
+            this.Dispose();
+        }
+    }
+}
